@@ -1,0 +1,82 @@
+import scala.annotation.tailrec
+
+object BasicScalaAppSolved extends App {
+
+  //Scala Basics: Collections + Pattern Matching
+
+  //Fold Left vs Fold Right vs Fold https://medium.com/@juntomioka/why-foldright-is-beautiful-7854ede3e133
+
+  val scalaList = scala.collection.immutable.List(1, 2, 3)
+
+  //def foldLeft[B](z: B)(op: (B, A) => B): B
+  println(scalaList.foldLeft(0){case (acumulated, item) => item + acumulated})
+  println(scalaList.foldLeft(0)(_ + _))
+
+  //def foldRight[B](z: B)(op: (A, B) => B): B
+  println(scalaList.foldRight(0){case (item, acumulated) => item + acumulated})
+
+  //def reduceLeft[B >: A](op: (B, A) => B): B
+  println(scalaList.reduceLeft(_+_)) //Deprecated, use reduceLeftOption
+  println(scalaList.reduceLeftOption(_+_))
+
+  //def reduceRight[B >: A](op: (A, B) => B): B
+  println(scalaList.reduceRight(_+_)) //Deprecated, use reduceRightOption
+  println(scalaList.reduceRightOption(_+_))
+
+  val customList = List(1,2,3)
+  println(customList.map(_ * 2))
+  println(customList.mapUsingFoldLeft(_ * 2))
+  println(customList.mapUsingFoldLeftFixed(_ * 2))
+  println(customList.reduceRight(_ +_))
+
+}
+
+sealed trait ListSolved[+A] {
+
+
+  //From Martin Odersky: Tail Recursion ->
+  // Functions which call themselves as their last action are called tail-recursive.
+  // The Scala compiler detects tail recursion and replaces it with a jump back to the beginning of the function
+  @tailrec
+  final def foldLeft[B](z: B)(f: (B, A) => B): B = this match {
+    case Nil => z
+    case Cons(head, tail) => tail.foldLeft(f(z, head))(f)
+  }
+
+  final def foldRight[B](z: B)(f: (A, B) => B): B = this match {
+    case Nil => z
+    case Cons(head, tail) => f(head, tail.foldRight(z)(f))
+  }
+
+  def map[B](f: A => B): ListSolved[B] =
+    foldRight(Nil: ListSolved[B])((a, acc) => Cons(f(a), acc))
+
+  def mapUsingFoldLeft[B](f: A => B): ListSolved[B] =
+    foldLeft(Nil: ListSolved[B])((acc, a) => Cons(f(a), acc))
+
+  def mapUsingFoldLeftFixed[B](f: A => B): ListSolved[B] =
+    foldLeft(Nil: ListSolved[B])((acc, a) => acc :+ f(a))
+
+  def :+[B >: A](a: B): ListSolved[B] = foldRight(List(a))((a, acum) => Cons.apply(a, acum))
+
+  def reduceRight[B >: A](f: (A, B) => B): B = this match {
+    case Nil=> throw new Exception("Nil.reduceRight")
+    case Cons(x, Nil) => x
+    case Cons(x, xs) => f(x, xs.reduceRight(f))
+   }
+
+  def reduceLeft[B >: A](f: (B, A) => B): B = this match {
+    case Nil
+    => throw new Exception("Nil.reduceLeft")
+    case Cons(x, xs) => xs.foldLeft[B](x)(f)
+  }
+}
+case object Nil extends ListSolved[Nothing]
+case class Cons[A](head: A, tail: ListSolved[A]) extends ListSolved[A]
+
+object List {
+  def apply[A](as: A*): ListSolved[A] =
+    as.foldRight(Nil: ListSolved[A])(Cons.apply)
+}
+
+
